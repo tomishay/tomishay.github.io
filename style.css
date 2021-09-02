@@ -91,15 +91,22 @@ a:hover {
  letter-spacing: 0.12em;
 }
 h1, h2, h3,h4{
-  color:#333  ;
+  color:#333;
 }
 p {
-  line-height:1.5;
+  line-height:2;
 }
 
 .post-containe:nth-child(even){
   background-color: #f2f2f2;
 }
+
+.Thesis-title{
+  margin-top: 50px;
+  margin-bottom: 25px;
+  margin-right: 150px;
+  margin-left: 80px;
+} 
 
 
 
