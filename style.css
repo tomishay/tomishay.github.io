@@ -15,7 +15,7 @@ body{
   letter-spacing:0.12em;
 }
 #header a:hover {
-  color:#212;
+  color:#636363;
 }
 #header-title{
   display: block;
@@ -56,10 +56,10 @@ body{
 }
 a{
   text-decoration: none;
-  color: #007500;
+  color: #054723;
 }
 a:hover {
-    color:#212;
+    color:#636363;
 }
 .post,.about{
   max-width:800px;
