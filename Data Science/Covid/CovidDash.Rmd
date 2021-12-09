@@ -1,0 +1,88 @@
+---
+title: "Corona in the Netherlands February 2020 to 2021"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(plotly)
+library(plyr)
+library(flexdashboard)
+library("tidyverse")
+library("tidyverse")
+library("leaflet")
+library(boot)
+
+covid <- read.table('RIVM_hospitalisation_2.txt', header = TRUE)
+covid <- covid[covid$Hospital_admission != "Unknown", ]
+covid$Hospital_admission <- as.factor(covid$Hospital_admission)
+covid$hospitalized <- ifelse(covid$Hospital_admission == "Yes", 1, 0)
+```
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Hospitalizations by provice
+
+```{r}
+p <- covid %>% 
+  filter(hospitalized == 1) %>% 
+  ggplot(aes(x = Province, fill = Sex)) +
+  theme_classic() +
+  ggplot2::geom_bar() 
+
+ggplotly(p)
+
+```
+
+### Hospitalizations by age group
+
+```{r}
+p <- covid %>% 
+  filter(hospitalized == 1) %>% 
+  group_by(AgegroupC) %>% 
+  mutate(Cases = n()/sum(covid$hospitalized) *100) %>% 
+  ggplot(aes(x = AgegroupC, y = Cases, fill = Sex)) +
+  ggplot2::scale_x_continuous(name = "Age Group",breaks = 1:10) +
+  ggplot2::scale_y_continuous(name = "Precentage of all cases") +
+  theme_classic() +
+  ggplot2::geom_bar(stat = "identity") 
+
+ggplotly(p)
+```
+
+Row {data-height=300}
+-----------------------------------------------------------------------
+###  Logistic Regression model 
+Coefficients Std.Errors and associated p-values.
+```{r}
+fit1 <- glm(hospitalized ~ AgegroupC + Sex + Number_days + Total_cases_reported, data = covid, family= binomial("logit"))
+
+knitr::kable(coef(summary(fit1)))
+```
+
+###  Predictions versus reality
+```{r}
+accuracy <- function(y,y_hat) {mean((y >= .5) == (y_hat >=0.5))}
+cvfit <- cv.glm(data = covid, glmfit = fit1, K = 10, cost = accuracy)
+probs <- predict(fit1, type="response")
+class <- probs >= .5 # binary division
+con.table <- table(Prediction = class, Reality = covid$hospitalized)
+knitr::kable(con.table)
+```
+
+###  sensetivity
+```{r}
+sensetivity <- round(2943/ (2943 + 20735),5)
+valueBox(sensetivity)
+```
+
+###  specificity
+```{r}
+specificity <- round(919269  /(919269   + 3661),5)
+valueBox(specificity)
+```
+

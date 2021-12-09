@@ -1,0 +1,135 @@
+---
+title: "Breast Cancer analysis"
+author: "Tom Yishay"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    source_code: embed
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(plotly)
+library(plyr)
+library(flexdashboard)
+library(ggpubr)
+
+# create some data
+data <- read.csv("breast_cancer.csv", header= T, sep = "")
+```
+
+Descriptive Statistics
+=======================================================================
+
+Row {data-height=100}
+-----------------------------------------------------------------------
+###  Number of obervations
+```{r}
+valueBox(nrow(data))
+```
+
+###  Precentage of cancer
+```{r}
+rate <- round(mean(data$diagnosis == 'M') * 100 , 1)
+gauge(rate, min = 0, max = 100, symbol = '%'
+)
+```
+
+###  Mean of radius means
+```{r}
+valueBox(round(mean(data$radius_mean), 1))
+```
+
+
+Row {.tabset .tabset-fade .tabset-fade}
+-------------------------------------
+###  The relationship between mean texture and radius
+
+```{r}
+p1 <- ggplot(data, aes(x = radius_mean , y = texture_mean, colour = diagnosis))+
+  ggplot2::geom_point() +
+  theme_bw() +
+  ggplot2::scale_x_continuous(name = "Radius mean") +
+  ggplot2::scale_y_continuous(name = "Texture mean")
+ggplotly(p1)
+```
+
+### Box plot of area mean
+
+```{r}
+p2 <- ggplot(data, aes(x = diagnosis , y = area_mean, colour = diagnosis))+
+  ggplot2::geom_boxplot() +
+  theme_bw() +
+  ggplot2::scale_x_discrete(name = "Diagnosis") +
+  ggplot2::scale_y_continuous(name = "Area mean")
+ggplotly(p2)
+```
+
+### Box plot of texture mean
+
+```{r}
+p2 <- ggplot(data, aes(x = diagnosis , y = texture_mean, colour = diagnosis))+
+  ggplot2::geom_boxplot() +
+  theme_bw() +
+  ggplot2::scale_x_discrete(name = "Radius mean") +
+  ggplot2::scale_y_continuous(name = "Texture mean")
+ggplotly(p2)
+```
+
+
+Analysis
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+### Components selection
+The data is optimally described by 5 components according to Keizer criterion and the drop in eigen values of the standardized data:
+```{r}
+dataplot <- data.frame(x = 1:30, y = eigen(cor(data[,-1]))$values)
+p <- ggplot(data = dataplot, aes(x = x,y = y)) +
+  geom_point() +
+  geom_line() +
+  geom_hline(yintercept = 1, colour = "red") +
+  theme_bw()
+
+ggplotly(p)
+
+```
+Row
+-----------------------------------------------------------------------
+### Model selection
+The model chosen is **linear discriminant analysis** used on the first five components.
+As we can see the model detects cancer and no-cancer correctly 62.5% and 32.2% of the time respectively. 
+```{r}
+fit <- prcomp(data[,-1], scale=T)
+Data <- data.frame(diag = data[,1], fit$x[,1:5])
+lda.fit <-MASS::lda(diag ~ PC1+PC2+PC3+PC4+PC5, data = Data, CV = T)
+Class_table <- table(real = Data$diag, predict = lda.fit$class)
+
+prop.table(table(Reality = Data$diag, Prediction = lda.fit$class)) %>%
+  round(5) %>%
+  as.data.frame() %>%
+  knitr::kable()
+```
+
+Row
+-----------------------------------------------------------------------
+###  Model's accurecy
+```{r}
+valueBox(round((Class_table[1,1] + Class_table[2,2]) / sum(Class_table), 2),
+         "Accuracy is the fraction of correct predictions.")
+```
+
+###  Model's Precision
+```{r}
+valueBox(round((Class_table[1,1] + Class_table[2,1]) / sum(Class_table), 2),
+         "Proportion of correct positive identifications.")
+```
+
+###  Model's Recall
+```{r}
+valueBox(round((Class_table[1,1] + Class_table[1,2]) / sum(Class_table), 2),
+         "Proportion of correctly identified positives.")
+```
+
