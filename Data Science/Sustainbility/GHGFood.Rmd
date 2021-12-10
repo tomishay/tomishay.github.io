@@ -272,7 +272,7 @@ ggplotly(p1)
 
 Analysis
 =======================================================================
-Row {data-height=10}
+Row {data-height=100}
 -----------------------------------------------------------------------
 ###  ***Research question***
 Can we predict emissions of Greenhouse Gases based on food production? 
