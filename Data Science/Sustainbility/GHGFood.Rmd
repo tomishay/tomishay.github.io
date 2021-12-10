@@ -1,0 +1,407 @@
+---
+title: "Greenhouse Gases emissions based on food production"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    source_code: embed
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+require(flexdashboard)
+require("mvinfluence")
+library("ggplot2")
+require(jaspGraphs)
+library(tidyr)
+library(dbplyr)
+library(plotly)
+
+## Target variables
+lands <- c("Austria", "Denmark", 'Germany', 'Italy', "Ireland", 'Spain', 'France', 'Poland', 'Netherlands', 
+           'Sweden', 'Romania', 'Greece', "Norway", "Portugal", "United Kingdom",  "Finland")
+
+years <- c(1990:2013)
+
+#data containing target variables
+data <- read.csv("capture-fishery-production.csv")
+data.WildF <- data[data$Year %in% years & data$Entity %in% lands,][,c(1,3,4)]
+names(data.WildF)<- c("Country", "Year", "Fish")
+
+# Farmed Fish
+data <- read.csv("aquaculture-farmed-fish-production.csv")
+data.FF <- data[data$Year %in% years & data$Entity %in% lands,][,c(1,3,4)]
+names(data.FF)<- c("Country", "Year", "F.Fish")
+
+
+# Seadfood 
+data <- read.csv("seafood-and-fish-production-thousand-tonnes.csv")
+data.F2 <- data[data$Year %in% years & data$Entity %in% lands,][,c(1,3,5,6,9)]
+names(data.F2)<- c("Country", "Year", "Karbs", "Squid", "other")
+
+
+## Meat Production
+data_meat <- read.csv("animals-slaughtered-for-meat (1).csv")
+data.Meat <- data_meat[data_meat$Year %in% years & data_meat$Entity %in% lands,][,c(1,3:9)]; head(data.Meat)
+names(data.Meat) <- c("Country", "Year", "Cattle", 'Goats',"Chicken",'Turkey',"Pigs", "Sheep")
+
+##Egg Production  
+data.egg <- read.csv('egg-production-thousand-tonnes.csv')
+data.E <- data.egg[data.egg$Year %in% years & data.egg$Entity %in% lands,][,c(1,3,4)]; names(data.E)<- c("Country", "Year", "Eggs")
+
+##Milk Production
+data.milk <- read.csv('milk-production-tonnes.csv')
+data.MI <- data.milk[data.milk$Year %in% years & data.milk$Entity %in% lands,][,c(1,3,4)]
+names(data.MI)<- c("Country", "Year", "Milk")
+
+############### GHG ################
+#Mythan 
+data <- read.csv("per-capita-methane-emissions.csv")
+data.M <- data[data$Year %in% years & data$Entity %in% lands,][,c(1,3,4)]; names(data.M)<- c("Country", "Year", "CH4")
+
+# CO 2
+data <- read.csv("annual-co-emissions-by-region.csv")
+data.CO <- data[data$Year %in% years & data$Entity %in% lands,][,c(1,3,4)]; names(data.CO)<- c("Country", "Year", "CO2")
+
+# N2O
+data <- read.csv("nitrous-oxide-emissions.csv")
+data.N2 <- data[data$Year %in% years & data$Entity %in% lands,][,c(1,3,4)]; names(data.N2)<- c("Country", "Year", "N2O")
+
+
+# Final merge
+data.final <- data.final.Unstandardize <- data.frame(data.M,
+                         CO2 = data.CO$CO2,
+                         N2O = data.N2$N2O,
+                         Fish.Capture = data.WildF$Fish,
+                         Fish.Farmed = data.FF$F.Fish,
+                         Cow = data.Meat$Cattle,
+                         Chicken = data.Meat$Chicken,
+                         Pig = data.Meat$Pigs,
+                         Sheep = data.Meat$Sheep,
+                         Eggs = data.E$Eggs,
+                         Milk = data.MI$Milk,
+                         Krabs = data.F2$Karbs,
+                         Squid = data.F2$Squid)
+# order by year
+data.final <- data.final[order(data.final$Country),]
+
+# Check for NA's
+data.final[which(data.final$Krabs == 0),14] <- NA
+data.final[which(data.final$Squid == 0),15] <- NA
+
+# Z scoring
+data.final[,c(-1,-2)] <- scale(data.final[,c(-1,-2)], center = TRUE , scale = TRUE)
+data.final[is.na(data.final)] <- 0 # Set all NA's to be average 
+
+# Predictors
+data.final.Predictors <- data.final[,-c(1:5)]
+```
+
+Descriptive
+=======================================================================
+Row {data-height=50}
+-----------------------------------------------------------------------
+###  ***Emissions by type***
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+###  CO2 (Carbon dioxide) 
+
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = CO2 / 1000000, colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name= "CO2 in million ton")
+
+
+ggplotly(p1)
+```
+
+###  N2O (Nitrous oxide)  
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = N2O / 1000000, colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name= "N2O in million ton")
+
+
+ggplotly(p1)
+```
+
+###  CH4 (Methane)
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = CH4,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "CH4 in tons")
+
+
+ggplotly(p1)
+```
+
+
+Row {data-height=50}
+-----------------------------------------------------------------------
+###  ***Food Consumption by type***
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Pig 
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = Pig / 1000000,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "Pig in million tons")
+
+
+ggplotly(p1)
+```
+
+### Cow 
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = Cow / 1000000,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "Cow in million tons")
+
+
+ggplotly(p1)
+```
+
+### Chicken 
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = Chicken / 1000000,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "Chicken in million tons")
+
+
+ggplotly(p1)
+```
+
+### Cow 
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = Eggs / 1000000,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "Eggs in million tons")
+
+
+ggplotly(p1)
+```
+
+### Captured Fish
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = Fish.Capture / 1000000,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "Captured Fish in million tons") 
+
+
+ggplotly(p1)
+```
+
+### Milk 
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = Milk / 1000000,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "Milk in million tons")
+
+
+ggplotly(p1)
+```
+
+### Eggs 
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = Eggs / 1000000,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "Eggs in million tons")
+
+
+ggplotly(p1)
+```
+
+### Sheep 
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = Sheep / 1000000,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "Sheep in million tons")
+
+
+ggplotly(p1)
+```
+
+### Krabs 
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = Krabs / 1000000,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "Krabs in million tons")
+
+
+ggplotly(p1)
+```
+
+### Squid 
+```{r}
+p1 <- data.final.Unstandardize %>%
+  ggplot2::ggplot(aes(x = Year, y = Sheep / 1000000,  colour = Country))+
+  ggplot2::geom_line()+
+  ggplot2::theme_bw() +
+  ggplot2::scale_y_continuous(name = "Squid in million tons")
+
+
+ggplotly(p1)
+```
+
+Analysis
+=======================================================================
+Row {data-height=10}
+-----------------------------------------------------------------------
+###  ***Research question***
+Can we predict emissions of Greenhouse Gases based on food production? 
+
+Row {data-height=150}
+-----------------------------------------------------------------------
+###  ***Methods***
+Multivariate Multiple Regression Model. \
+Data transformed to Z-scores. \
+Predictors: food consumption by type.\
+Leave one out cross validation. \
+
+```{r}
+names(data.final)[3] <- "Mythan"
+# order by year
+data.final <- data.final[order(data.final$Year),]
+
+# Check for NA's
+data.final[which(data.final$Krabs == 0),14] <- NA
+data.final[which(data.final$Squid == 0),15] <- NA
+
+# Z scoring
+data.final[,c(-1,-2)] <- scale(data.final[,c(-1,-2)], center = TRUE , scale = TRUE)
+
+data.final[is.na(data.final)] <- 0 # Set all NA's to be average 
+
+# outliers 
+data.final.Predictors <- data.final[,-c(1:5)]
+data.final <- data.final[-which(rowSums(data.final.Predictors >= 3) > 0),] #exclude outlines 
+```
+
+Row {data-height=50}
+-----------------------------------------------------------------------
+###  ***Results***
+
+Row {data-height=150}
+-----------------------------------------------------------------------
+
+### CO2 Predictions
+```{r}
+# Create a variable to store the predict in
+fitted_value_CO2 <- NULL
+fitted_value_CO2.China <- NULL
+fitted_value_NO2  <-NULL
+fitted_value_Mythan <-NULL
+
+# start of the loop over all observations
+for(i in 1:nrow(data.final)) {
+  
+  # train data: N-1 and test set: 1 observation
+  traindata = data.final[-i ,]
+  testdata = data.final[i ,]
+  
+  # Build the model
+  model <- lm(cbind(CO2,N2O, Mythan) ~ ., data= traindata[,c(-1,-2)])
+  
+  # Make prediction of the model with validation set
+  fitted_value_CO2[i] <- predict(model, testdata)[,1]
+  fitted_value_NO2[i] <- predict(model, testdata)[,2]
+  fitted_value_Mythan[i] <- predict(model, testdata)[,3]
+}
+# Combine the Real, Predicted, and Predicted.Less values 
+preidcted_CO2 = data.frame(Country = data.final$Country, Year = data.final$Year, Normal = fitted_value_CO2)
+preidcted_N2O = data.frame(Country = data.final$Country, Year = data.final$Year, Normal = fitted_value_NO2)
+preidcted_Mythan = data.frame(Country = data.final$Country, Year = data.final$Year, Normal = fitted_value_Mythan)
+
+# Correlations between the Real and Predicted Values
+Cor_CO2 <- cor(preidcted_CO2$Normal , data.final$CO2)
+Cor_NO2 <- cor(preidcted_N2O$Normal , data.final$N2O)
+Cor_Mythan <- cor(preidcted_Mythan$Normal , data.final$Mythan)
+
+valueBox(round(Cor_CO2,3), "CO2 Correlation between predicted and real values")
+
+```
+
+### N2O Predictions
+```{r}
+valueBox(round(Cor_NO2,3), "N2O Correlation between predicted and real values")
+```
+
+### Methane Predictions
+```{r}
+valueBox(round(Cor_Mythan,3), "Methane Correlation between predicted and real values")
+```
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+```{r}
+# Visualization 
+CO2Data<- data.frame(CO2 = data.final$CO2, P.CO2 = preidcted_CO2$Normal)
+NO2Data<- data.frame(NO2 = data.final$N2O, P.NO2 = preidcted_N2O$Normal)
+MythanData<- data.frame(Mythan = data.final$Mythan, P.Mythan = preidcted_Mythan$Normal)
+```
+
+### CO2
+```{r}
+p1 <- ggplot2::ggplot(CO2Data, aes(x = CO2, y = P.CO2))+
+  ggplot2::geom_point()+
+  annotate("text", x= 1, y= -2, label= gettextf("R-Squared = %g", round(Cor_CO2^2,3))) +
+  ggplot2::theme_classic()+
+  stat_smooth(method="lm", se=T)+
+  ggplot2::scale_x_continuous(name = "Real CO2 emissions") + 
+  ggplot2::scale_y_continuous(name = "Predicted CO2 emissions")
+
+ggplotly(p1)
+```
+
+### N2O
+```{r}
+p1 <- ggplot2::ggplot(NO2Data, aes(x = NO2, y = P.NO2))+
+  ggplot2::geom_point()+
+  annotate("text", x= 1, y= -2, label= gettextf("R-Squared = %g", round(Cor_NO2^2,3))) +
+  ggplot2::theme_classic()+
+  stat_smooth(method="lm", se=T)+
+  ggplot2::scale_x_continuous(name = "Real N2O emissions") + 
+  ggplot2::scale_y_continuous(name = "Predicted N2O emissions")
+
+ggplotly(p1)
+```
+
+### Methane
+```{r}
+p3 <- ggplot2::ggplot(MythanData, aes(x = Mythan, y = P.Mythan))+
+  ggplot2::geom_point()+
+  annotate("text", x= 1, y= -2, label= gettextf("R-Squared = %g", round(Cor_Mythan^2,3))) +
+  ggplot2::scale_y_continuous(name =  gettext("Predicted Methane emissions")) +
+  ggplot2::scale_x_continuous(name =  gettext("Real Methane emissions")) +
+  ggplot2::theme_classic()+
+  stat_smooth(method="lm", se=T)
+
+ggplotly(p3)
+```

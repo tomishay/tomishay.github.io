@@ -32,8 +32,7 @@ valueBox(nrow(data))
 ###  Precentage of cancer
 ```{r}
 rate <- round(mean(data$diagnosis == 'M') * 100 , 1)
-gauge(rate, min = 0, max = 100, symbol = '%'
-)
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(danger = c(0, 100) ))
 ```
 
 ###  Mean of radius means
