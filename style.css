@@ -116,8 +116,6 @@ p {
 .Thesis-title{
   margin-top: 50px;
   margin-bottom: 25px;
-  margin-right: 150px;
-  margin-left: 80px;
 } 
 .Thesis-link {
   border: none;
@@ -130,6 +128,15 @@ p {
 #linkdn1{
   text-decoration-color: white;
   color: white;
+}
+button ,.p-fullpaper{
+  border: none;
+  padding: 20px 62px 20px ;
+  font-size: 16px;
+  border-radius: 5%;
+}
+.p-thesis {
+    line-height: 2.5 ;
 }
 
 
