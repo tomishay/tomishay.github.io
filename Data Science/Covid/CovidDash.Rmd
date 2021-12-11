@@ -1,26 +1,47 @@
 ---
-title: "Corona in the Netherlands February 2020 to 2021"
+title: "Corona in the Netherlands"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: fill
+    theme: bootstrap
 ---
 
 ```{r setup, include=FALSE}
-library(ggplot2)
-library(plotly)
-library(plyr)
-library(flexdashboard)
+library("ggplot2")
+library("plotly")
+library("plyr")
+library("flexdashboard")
 library("tidyverse")
 library("tidyverse")
 library("leaflet")
-library(boot)
+library("boot")
+library("covid19.analytics")
+library("dplyr")
+library("prophet")
+library("lubridate")
+
+# Data
+tsc <- covid19.data(case = 'ts-ALL')  %>%
+  filter(Country.Region == "Netherlands" & Province.State == "") %>%
+  t() %>%
+  data.frame() 
+tsc <- tsc[-c(1:4),] 
+tsc <- cbind(rownames(tsc), data.frame(tsc, row.names = NULL))
+colnames(tsc) <- c("Date","Confirmed", "Death", "Recovered")
+tsc[,-1] <- apply(tsc[,-1], 2, as.numeric)
+tsc$Date <- ymd(tsc$Date)
+tsc <- tsc[-which(is.na(tsc)),]
+data_Feb <-tsc[which(tsc$Date == "2020-02-27"):which(tsc$Date == "2021-02-21"),]
 
 covid <- read.table('RIVM_hospitalisation_2.txt', header = TRUE)
 covid <- covid[covid$Hospital_admission != "Unknown", ]
 covid$Hospital_admission <- as.factor(covid$Hospital_admission)
 covid$hospitalized <- ifelse(covid$Hospital_admission == "Yes", 1, 0)
 ```
+
+Descriptive: February 2020 to 2021
+=======================================================================
 
 Row {.tabset .tabset-fade}
 -----------------------------------------------------------------------
@@ -54,16 +75,81 @@ p <- covid %>%
 ggplotly(p)
 ```
 
-Row {data-height=300}
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+###  Accumulated cases 
+```{r}
+p1 <- ggplot(data = data_Feb, aes(x = Date, y = Confirmed)) +
+  geom_line()+
+  theme_bw()
+ggplotly(p1)
+```
+
+###  Accumulated deaths
+```{r}
+p2 <- ggplot(data = data_Feb, aes(x = Date, y = Death)) +
+  geom_line() +
+  theme_bw()
+ggplotly(p2)
+```
+
+Row {data-width=100}
+-------------------------------------------------------------------------------
+### Number of cases 
+
+```{r}
+n.cases <- data_Feb[nrow(data_Feb),2]
+valueBox(n.cases)
+```
+
+### Number of deaths
+
+```{r}
+n.death <- data_Feb[nrow(data_Feb),3] 
+valueBox(n.death)
+```
+
+
+### % Hospitalized
+```{r}
+hos <- sum(covid$hospitalized == 1) / nrow(covid)* 100
+valueBox(round(hos, 2))
+```
+
+### Average age group in hospitals
+```{r}
+data <- filter(covid, Hospital_admission == "Yes")
+valueBox(round(mean(data$AgegroupC),0))
+```
+
+
+Hospitalizations prediction: February 2020 to 2021
+=======================================================================
+Row {data-height=100}
+-----------------------------------------------------------------------
+###  ***Research question***
+Can we predict hospitalizations? \
+
+Row {data-height=150}
+-----------------------------------------------------------------------
+###  ***Methods***
+Logistic Regression Model. \
+Predictors: Age group, Sex, Number of days in hospital, total cases reported.\
+Transformation to continuous dependent variable: logit. \ 
+Model training method: Leave one out cross validation. \
+
+
+Row
 -----------------------------------------------------------------------
 ###  Logistic Regression model 
 Coefficients Std.Errors and associated p-values.
 ```{r}
-fit1 <- glm(hospitalized ~ AgegroupC + Sex + Number_days + Total_cases_reported, data = covid, family= binomial("logit"))
-
+fit1 <- glm(hospitalized ~ AgegroupC + Sex + Number_days + Total_cases_reported, data = covid, family = binomial("logit"))
 knitr::kable(coef(summary(fit1)))
 ```
 
+Row
+-----------------------------------------------------------------------
 ###  Predictions versus reality
 ```{r}
 accuracy <- function(y,y_hat) {mean((y >= .5) == (y_hat >=0.5))}
@@ -74,6 +160,8 @@ con.table <- table(Prediction = class, Reality = covid$hospitalized)
 knitr::kable(con.table)
 ```
 
+Row {data-width=200}
+-----------------------------------------------------------------------
 ###  sensetivity
 ```{r}
 sensetivity <- round(2943/ (2943 + 20735),5)
@@ -85,4 +173,73 @@ valueBox(sensetivity)
 specificity <- round(919269  /(919269   + 3661),5)
 valueBox(specificity)
 ```
+
+Cases forecasting
+=======================================================================
+Row {data-height=100}
+-----------------------------------------------------------------------
+###  ***Research question***
+Can we forecast COVID cases and deaths for the next 3 motnhs? \
+
+Row {data-height=100}
+-----------------------------------------------------------------------
+###  ***Methods***
+The prophet model.
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+###  Forecasting COVID cases
+```{r}
+# Forecasting
+y1 = tsc$Confirmed; y2 <- tsc$Death
+m.1 <- prophet(data.frame(ds = tsc$Date, y = y1))
+m.2 <- prophet(data.frame(ds = tsc$Date, y = y2))
+
+# Prediction
+future.1 <- make_future_dataframe(m.1, periods = 90)
+future.2 <- make_future_dataframe(m.2, periods = 90)
+
+forecast.1 <- predict(m.1, future.1)
+forecast.2 <- predict(m.2, future.2)
+
+# Plot forecast
+dyplot.prophet(m.1, forecast.1)
+```
+
+###  Forecasting COVID deaths
+```{r}
+dyplot.prophet(m.2, forecast.2)
+```
+
+Row {data-height=150}
+-----------------------------------------------------------------------
+###  Correlation for COVID cases model 
+```{r}
+pred1 <- round(forecast.1$yhat[1:nrow(tsc)],0); pred2 <- forecast.2$yhat[1:nrow(tsc)]
+actual1 <- m.1$history$y ; actual2 <- m.2$history$y
+
+summary1 <- summary(lm(pred1 ~ actual1)) ; summary2 <- summary(lm(pred2 ~ actual2))
+
+R.squared.Confirmed <- summary1$r.squared
+R.squared.Death<- summary2$r.squared
+
+valueBox(sqrt(R.squared.Confirmed))
+```
+
+###  R-squared for COVID cases model 
+```{r}
+valueBox(R.squared.Confirmed)
+```
+
+###  Correlation for COVID deaths model 
+```{r}
+valueBox(sqrt(R.squared.Death))
+```
+
+###  R-squared for COVID deaths model 
+```{r}
+valueBox(R.squared.Death)
+```
+
+
 
