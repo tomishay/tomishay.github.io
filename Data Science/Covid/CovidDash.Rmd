@@ -125,12 +125,12 @@ valueBox(round(mean(data$AgegroupC),0))
 
 Hospitalizations prediction: February 2020 to 2021
 =======================================================================
-Row {data-height=100}
+Row {data-height=150}
 -----------------------------------------------------------------------
 ###  ***Research question***
 Can we predict hospitalizations? \
 
-Row {data-height=150}
+Row 
 -----------------------------------------------------------------------
 ###  ***Methods***
 Logistic Regression Model. \
@@ -139,7 +139,7 @@ Transformation to continuous dependent variable: logit. \
 Model training method: Leave one out cross validation. \
 
 
-Row
+Row {data-height=300}
 -----------------------------------------------------------------------
 ###  Logistic Regression model 
 Coefficients Std.Errors and associated p-values.
@@ -148,7 +148,7 @@ fit1 <- glm(hospitalized ~ AgegroupC + Sex + Number_days + Total_cases_reported,
 knitr::kable(coef(summary(fit1)))
 ```
 
-Row
+Row {data-width=250}
 -----------------------------------------------------------------------
 ###  Predictions versus reality
 ```{r}
@@ -160,7 +160,7 @@ con.table <- table(Prediction = class, Reality = covid$hospitalized)
 knitr::kable(con.table)
 ```
 
-Row {data-width=200}
+Row {data-width=100}
 -----------------------------------------------------------------------
 ###  sensetivity
 ```{r}
